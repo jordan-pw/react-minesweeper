@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import './Minesweeper.css';
 
+// Represents an individual square in the Minesweeper grid
 function Square({ x, y, value, onMouseDown }) {
 
+    // Determine the appropriate CSS class for the square
     const squareClass = value.revealed ? "square revealed" : "square";
+
+     // Determine the display value for the square based on its state
     const squareDisplay = () => {
-        if (value.revealed == true) {
-            if (value.mine == true) {
+        if (value.revealed === true) {
+            if (value.mine === true) {
                 return "💣";
             }
             return value.touchingMines > 0 ? value.touchingMines : " ";
@@ -19,6 +23,7 @@ function Square({ x, y, value, onMouseDown }) {
         }
     }
 
+    // Render the square component
     return (
         <button onMouseDown={(e) => onMouseDown(x, y, e.nativeEvent.button)} onContextMenu={(e) => e.preventDefault()} className={squareClass}>
           {squareDisplay()}
@@ -26,7 +31,10 @@ function Square({ x, y, value, onMouseDown }) {
       );
 }
 
+// Represents the Minesweeper game board
 function Board({ squares, onClick }) {
+
+    // Generate the game board from the squares array
     const gameboard = squares.map((row, rowIdx) => {
         return (
             <div key={rowIdx} className="board-row">
@@ -43,6 +51,7 @@ function Board({ squares, onClick }) {
         )
     })
 
+    // Render the game board
     return (
         <div className="board">
             {gameboard}
@@ -50,19 +59,25 @@ function Board({ squares, onClick }) {
     );
 }
 
+// Main Minesweeper component
 export default function Minesweeper() {
 
+    // Game settings state
     const [width, setWidth] = useState(9);
     const [height, setHeight] = useState(9);
     const [numMines, setNumMines] = useState(3);
 
+    // Move state
     const [move, setMove] = useState(0)
+
+    // Minesweeper grid state
     const [squares, setSquares] = useState(
         Array(width).fill(
             Array(height).fill({mine: false, revealed: false, flag: false, touchingMines: 0})
         )
     );
 
+    // Game state
     const [winState, setWinState] = useState(false);
     const [loseState, setLoseState] = useState(false);
 
@@ -70,39 +85,50 @@ export default function Minesweeper() {
     //     p.push(c.filter(square => square.flag == true))
     // );
 
+    // Fills the minefield with mines
     function fillMinefield(clickedX, clickedY) {
-
-        const nextSquares = JSON.parse(JSON.stringify(squares));
+        // Create a new copy of the squares state
+        const nextSquares = squares.map(row => [...row]);
 
         let minePosX = 0;
         let minePosY = 0;
-
+        // Randomly place mines in the grid
         for (let i = 0; i < numMines; i++) {
 
+            // Generate random positions until a non-clicked position is found
             do {
                 minePosX = Math.floor(Math.random() * width);
                 minePosY = Math.floor(Math.random() * height);
             } while (minePosX === clickedX && minePosY === clickedY);
 
+            // Set the mine flag for the selected square
             nextSquares[minePosY][minePosX].mine = true;
         }
 
+        // Calculate the number of mines touching each
         for (let i = 0; i < nextSquares.length; i++) {
             for (let j = 0; j < nextSquares[i].length; j++) {
                 nextSquares[i][j].touchingMines = checkNeighborSquares(nextSquares, j, i);
             }
         }
+
+        // Perform flood fill to reveal empty squares
         floodFill(nextSquares, clickedX, clickedY);
+
+        // Update the move and squares state
         setMove(move + 1);
         setSquares(nextSquares);
     }
 
+    // Handles square clicks
     function handleSquareClick(clickedX, clickedY, button) {
-
-        const nextSquares = JSON.parse(JSON.stringify(squares));
+        // Create a new copy of the squares state
+        const nextSquares = squares.map(row => [...row]);
 
         if (button === 0) {
-            if (nextSquares[clickedY][clickedX].mine == true){
+            // Left-clicked on a square
+            if (nextSquares[clickedY][clickedX].mine){
+                // Game over, reveal all squares
                 for (let row of nextSquares) {
                     for (let square of row) {
                         square.revealed = true;
@@ -111,20 +137,24 @@ export default function Minesweeper() {
                 setLoseState(true);
             }
             else{
+                // Perform flood fill to reveal empty squares
                 floodFill(nextSquares, clickedX, clickedY);
             }
         }
         else if (button === 2) {
-            if (nextSquares[clickedY][clickedX].revealed == false) {
+            // Right-clicked on a square, toggle flag
+            if (!nextSquares[clickedY][clickedX].revealed) {
                 nextSquares[clickedY][clickedX].flag = !nextSquares[clickedY][clickedX].flag;
             }
         }
 
+        // Update the move and squares state
         setMove(move + 1);
         setSquares(nextSquares);
         setWinState(checkWin(nextSquares));
     }
 
+    // Render the Minesweeper component
     return (
         <div className='minesweeper'>
             <div className='settings'>
@@ -154,82 +184,79 @@ export default function Minesweeper() {
                     </li>
                 </ul>
             </div>
+            {/* Game board */}
             <div className='game'>
-                {(move == 0)
-                    ? (<Board squares={squares} onClick={fillMinefield}/>) 
-                    : (<Board squares={squares} onClick={handleSquareClick}/>)
+                {(move === 0)
+                    ? (<Board squares={squares} onClick={fillMinefield}/>) // Initial board without revealed squares
+                    : (<Board squares={squares} onClick={handleSquareClick}/>) // Board after the first move with revealed squares
                 }               
             </div>
         </div>
     );
 }
 
-
+// Performs flood fill to reveal empty squares
 function floodFill(squares, x, y) {
-
+    // Check if the square is fillable
     if (!isFillable(squares, x, y)) return;
 
+    // Reveal the square
+    squares[y][x].revealed = true;
+    squares[y][x].flag = false;
+
+    // Recursive flood fill on neighbor squares if not touching nay mines
     if (squares[y][x].touchingMines == 0) {
-        squares[y][x].revealed = true;
-        squares[y][x].flag = false;
         floodFill(squares, x+1, y);
         floodFill(squares, x-1, y);
         floodFill(squares, x, y-1);
         floodFill(squares, x, y+1);
-    } else if (squares[y][x].touchingMines > 0) {
-        squares[y][x].revealed = true;
-        squares[y][x].flag = false;
     }
 }
 
 function isFillable(squares, x, y) {
-    if (y >= squares.length || y < 0) {return false};
-    if (x >= squares[y].length || x < 0) {return false};
+    // Check if the coordinates are within the grid bounds
+    if (x < 0 || x >= squares[0].length || y < 0 || y >= squares.length) {
+        return false;
+    }
 
     if (!squares[y][x]) {return false};
-    if (squares[y][x].mine == true) {return false};
-    if (squares[y][x].revealed == true) {return false};
+    if (squares[y][x].mine) {return false};
+    if (squares[y][x].revealed) {return false};
 
     return true;
 }
 
+// Checks the number of mines touching a square
 function checkNeighborSquares(squares, x, y) {
     let total = 0;
 
-    // Check the 8 squares around the target square
-    for (let dy = -1; dy <= 1; dy++) {
-        // Make sure the row index is within bounds
-        if ((y+dy) >= squares.length || (y+dy) < 0) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-            // Make sure the column index is within bounds
-            if ((x+dx) >= squares[y+dy].length || (x+dx) < 0) continue;
-            // If the square contains a mine, increase the total
-            if (squares[y+dy][x+dx].mine) total++;
+    // Define the neighboring squares' coordinates
+    const neighbors = [
+        [-1, -1], [0, -1], [1, -1],
+        [-1,  0],          [1,  0],
+        [-1,  1], [0,  1], [1,  1]
+    ];
+    
+    // Count the number of mines in the neighboring squares
+    for (const [dx, dy] of neighbors) {
+        const nx = x + dx;
+        const ny = y + dy;
+
+        // Check if the neighboring square is within the grid bounds
+        if (nx >= 0 && nx < squares[0].length && ny >= 0 && ny < squares.length) {
+            if (squares[ny][nx].mine) {
+                total++;
+            }
         }
     }
 
     return total;
 }
 
+// Checks if the game has been won
 function checkWin(checkSquares) {
 
-    for (let row of checkSquares) {
-        for (let square of row) {
-            if (square.mine === true) {
-
-                if (square.flag === true) {
-                    continue;
-                }
-                else {
-                    return false;
-                }
-
-            }
-            else if (square.flag === true) {
-                return false;
-            }
-        }
-    }
-
-    return true;
+    return !checkSquares.some(row =>
+            row.some(square => (square.mine && !square.flag) || (!square.mine && square.flag))
+    );
 }
